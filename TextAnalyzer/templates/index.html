@@ -1,0 +1,121 @@
+{%- macro check_option(key, name, summary, purpose, steps, result) -%}
+<div class="choice">
+  <label class="choice-label">
+    <input type="checkbox" value="{{ key }}" aria-labelledby="check-name-{{ key }}"
+           aria-describedby="check-summary-{{ key }}">
+    <span><b id="check-name-{{ key }}">{{ name }}</b><small id="check-summary-{{ key }}">{{ summary }}</small></span>
+  </label>
+  <button class="choice-help" type="button" data-check="{{ key }}" aria-haspopup="dialog"
+          aria-controls="check-help" aria-label="Подсказка: {{ name }}">?</button>
+  <template id="help-{{ key }}">
+    <h3>Что проверяет</h3>
+    <p>{{ purpose }}</p>
+    <h3>Как использовать</h3>
+    <p>{{ steps }}</p>
+    <h3>Что смотреть в результате</h3>
+    <p>{{ result }}</p>
+  </template>
+</div>
+{%- endmacro -%}
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TextAnalyzer</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <aside id="sidebar">
+    <div class="side-head">
+      <h2>История</h2>
+      <button id="clear-history" class="link" type="button">Очистить</button>
+    </div>
+    <button id="new-text" class="secondary wide" type="button">Новый текст</button>
+    <ul id="history"></ul>
+    <p id="history-empty" class="muted">Здесь появятся отправленные тексты.</p>
+  </aside>
+
+  <main>
+    <h1>Анализ текстовых документов</h1>
+    <div id="alerts" role="status" aria-live="polite"></div>
+
+    <section class="card" id="composer">
+      <label for="text" class="muted">Проверяемый текст</label>
+      <textarea id="text" placeholder="Вставьте текст или нажмите «+», чтобы добавить файл или фото"></textarea>
+      <div class="row">
+        <label class="plus" title="Добавить файл или фото">+
+          <input type="file" id="file" hidden
+                 accept=".txt,.md,.docx,.pdf,.png,.jpg,.jpeg,.bmp,.tif,.tiff,.webp">
+        </label>
+        <span class="muted" id="counter">0 символов</span>
+        <span class="grow"></span>
+        <button id="send" type="button">Отправить</button>
+      </div>
+      <p class="muted small">Файлы: .txt, .md, .docx, .pdf, фото (png, jpg…). Текст из файла попадает в поле, его можно поправить перед отправкой.</p>
+    </section>
+
+    <section class="card" id="choose" hidden>
+      <h2>Что проверить?</h2>
+      <p id="summary" class="muted"></p>
+      <details id="skipped-details" hidden><summary>Строки, исключённые из подсчётов</summary><pre id="skipped-text"></pre></details>
+      <div id="choices">
+        {{ check_option('complexity', 'Сложность текста', 'Насколько легко читать текст',
+          'Примерно оценивает читаемость по длине слов и предложений.',
+          'Отметьте проверку и нажмите «Проверить». Достаточно одного текста.',
+          'Начните с оценки словами вверху карточки. Чтобы сравнить два варианта одного текста, запустите проверку для каждого по отдельности.') }}
+        {{ check_option('plagiarism', 'Поиск совпадений в интернете', 'Ссылки для поиска фраз в Яндексе и Google',
+          'Подбирает до шести предложений из текста и готовит ссылки для поиска совпадений.',
+          'Отметьте проверку и нажмите «Проверить». Под нужным фрагментом нажмите «Найти в Яндексе» или «Найти в Google». Кнопка отправит первые слова фрагмента выбранному поисковику.',
+          'Откройте найденную страницу и сравните текст с вашим. В ручном режиме совпадения оцениваете вы.') }}
+        {{ check_option('uniqueness', 'Уникальность относительно второго текста', 'Сколько фрагментов совпало в двух текстах',
+          'Сравнивает два текста по фрагментам из четырёх слов подряд.',
+          'Отметьте проверку, вставьте или загрузите документ для сравнения в поле «Второй текст», затем нажмите «Проверить».',
+          'Например, 75 % означает, что в тексте для сравнения встретилась примерно четверть четырёхсловных фрагментов первого текста.') }}
+        {{ check_option('stylometry', 'Стилометрия', 'Насколько похож стиль двух текстов',
+          'Сравнивает частоту служебных слов, например «и» и «но», и знаков препинания.',
+          'Отметьте проверку, заполните поле «Второй текст» и нажмите «Проверить». Нужно хотя бы 50 слов в каждом тексте. Для более устойчивой оценки возьмите по 500 слов или больше.',
+          'Чем ближе значение к 1, тем больше сходство по измеренным признакам. Используйте оценку как подсказку при сравнении стилей.') }}
+        {{ check_option('security', 'Безопасность', 'Поиск персональных данных и скрытых символов',
+          'Ищет, например, ФИО, номера телефонов, адреса почты и скрытые символы.',
+          'Отметьте проверку и нажмите «Проверить». Просмотрите найденное и оставьте галочки у данных, которые хотите заменить метками.',
+          'Нажмите «Очистить текст», чтобы получить отдельную версию для копирования. Перед отправкой перечитайте её целиком.') }}
+      </div>
+      <div id="reference-box" hidden>
+        <h3>Второй текст</h3>
+        <textarea id="reference" aria-label="Второй текст" placeholder="Текст, с которым сравнивать"></textarea>
+        <div class="row">
+          <label class="plus" title="Добавить файл или фото">+
+            <input type="file" id="ref-file" hidden
+                   accept=".txt,.md,.docx,.pdf,.png,.jpg,.jpeg,.bmp,.tif,.tiff,.webp">
+          </label>
+        </div>
+      </div>
+      <div class="row">
+        <span class="grow"></span>
+        <button id="run" type="button">Проверить</button>
+      </div>
+    </section>
+
+    <div id="results"></div>
+    <p id="busy-status" role="status" aria-live="polite" hidden>Выполняется проверка… Поиск в интернете может занять около минуты.</p>
+  </main>
+
+  <dialog id="check-help" aria-labelledby="check-help-title">
+    <h2 id="check-help-title" tabindex="-1" autofocus></h2>
+    <div id="check-help-body"></div>
+    <form method="dialog" class="row help-actions">
+      <button type="submit">Понятно</button>
+    </form>
+  </dialog>
+
+  <dialog id="clear-dialog" aria-labelledby="clear-title">
+    <h2 id="clear-title">Очистить историю?</h2>
+    <p>Все тексты и результаты из истории этого браузера будут удалены. Отменить удаление нельзя.</p>
+    <div class="row"><button id="cancel-clear" class="secondary" type="button">Отмена</button>
+      <button id="confirm-clear" type="button">Удалить историю</button></div>
+  </dialog>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
